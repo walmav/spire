@@ -52,29 +52,41 @@ func (s *workloadServer) SetBundle(bundle []byte) {
 }
 
 func (s *workloadServer) FetchBundles(ctx context.Context, spiffeID *workload.SpiffeID) (*workload.Bundles, error) {
+	s.l.Info("FetchBundles")
 	entries, err := s.fetchAllEntries(ctx)
 	if err != nil {
+		s.l.Info("xxx1")
 		return nil, err
 	}
 
+	s.l.Info("xxx2")
+
 	var myEntry *cache.CacheEntry
 	for _, e := range entries {
+		s.l.Info("xxx3")
 		if e.RegistrationEntry.SpiffeId == spiffeID.Id {
+			s.l.Info("xxx4")
 			myEntry = &e
 			break
 		}
 	}
 
+	s.l.Info("xxx5")
+
 	// We didn't find an entry for the requested SPIFFE ID. It either
 	// doesn't exist, or the workload is not entitled to it.
 	if myEntry == nil {
+		s.l.Info("xxx6")
 		return &workload.Bundles{}, fmt.Errorf("SVID for %s not found or not authorized", spiffeID.Id)
 	}
+
+	s.l.Info("xxx7")
 
 	return s.composeResponse([]cache.CacheEntry{*myEntry})
 }
 
 func (s *workloadServer) FetchAllBundles(ctx context.Context, _ *workload.Empty) (*workload.Bundles, error) {
+	s.l.Info("FetchAllBundles")
 	entries, err := s.fetchAllEntries(ctx)
 	if err != nil {
 		return nil, err
@@ -87,6 +99,7 @@ func (s *workloadServer) FetchAllBundles(ctx context.Context, _ *workload.Empty)
 // a context, it works out all cache entries to which the workload is entitled. Returns the
 // set of entries, and an error if one is encountered along the way.
 func (s *workloadServer) fetchAllEntries(ctx context.Context) (entries []cache.CacheEntry, err error) {
+	s.l.Info("fetchAllEntries")
 	pid, err := s.resolveCaller(ctx)
 	if err != nil {
 		err = fmt.Errorf("Error encountered while trying to identify the caller: %s", err)
@@ -100,6 +113,7 @@ func (s *workloadServer) fetchAllEntries(ctx context.Context) (entries []cache.C
 		return entries, err
 	}
 
+	s.l.Info("ok to MatchingEntries")
 	return s.cacheMrg.Cache().MatchingEntries(selectors), nil
 }
 

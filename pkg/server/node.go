@@ -14,6 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/uri"
+	"github.com/spiffe/spire/pkg/common/selector"
 	"github.com/spiffe/spire/pkg/common/util"
 	"github.com/spiffe/spire/pkg/server/catalog"
 	"github.com/spiffe/spire/proto/api/node"
@@ -98,6 +99,11 @@ func (s *nodeServer) FetchBaseSVID(
 		return response, errors.New("Error trying to get selectors for baseSpiffeID")
 	}
 
+	s.l.Debug("FetchBaseSVID.selectors.len ", len(selectors))
+	for i, ss := range selectors {
+		s.l.Debug("FetchBaseSVID.selectors ", i, " - ", ss.Type, ":", ss.Value)
+	}
+
 	response, err = s.getFetchBaseSVIDResponse(
 		baseSpiffeIDFromCSR, signResponse.SignedCertificate, selectors)
 	if err != nil {
@@ -138,6 +144,7 @@ func (s *nodeServer) FetchSVID(server node.Node_FetchSVIDServer) (err error) {
 			return errors.New("An SPIFFE ID is required for this request")
 		}
 		ctxSpiffeID := uriNames[0]
+		s.l.Debug("FetchSVID...", ctxSpiffeID)
 
 		selectors, err := s.getStoredSelectors(ctxSpiffeID)
 		if err != nil {
@@ -149,6 +156,14 @@ func (s *nodeServer) FetchSVID(server node.Node_FetchSVIDServer) (err error) {
 		if err != nil {
 			s.l.Error(err)
 			return errors.New("Error trying to get registration entries")
+		}
+
+		s.l.Debug("FetchSVID.regEntries.len ", len(regEntries))
+		for i, ss := range regEntries {
+			s.l.Debug("FetchSVID.regEntries ", i, " - ", ss.SpiffeId, ", ", ss.ParentId)
+			for j, sss := range ss.Selectors {
+				s.l.Debug("FetchSVID.regEntries.selector ", i, ",", j, " - ", sss.Type, ":", sss.Value)
+			}
 		}
 
 		svids, err := s.signCSRs(peerCert, request.Csrs, regEntries)
@@ -187,15 +202,37 @@ func (s *nodeServer) fetchRegistrationEntries(selectors []*common.Selector, spif
 	dataStore := s.catalog.DataStores()[0]
 	var entries []*common.RegistrationEntry
 
-	///lookup Registration Entries for resolved selectors
-	req := &datastore.ListSelectorEntriesRequest{Selectors: selectors}
-	listSelectorResponse, err := dataStore.ListMatchingEntries(req)
-	if err != nil {
-		return nil, err
+	defer s.l.Debug("Exiting fetchRegistrationEntries")
+
+	s.l.Debug("fetchRegistrationEntries.selectors.len ", len(selectors), " spiffeID ", spiffeID)
+	for i, ss := range selectors {
+		s.l.Debug("fetchRegistrationEntries.selectors ", i, " - ", ss.Type, ":", ss.Value)
 	}
 
-	selectorsEntries := listSelectorResponse.RegisteredEntryList
-	entries = append(entries, listSelectorResponse.RegisteredEntryList...)
+	///lookup Registration Entries for resolved selectors
+	for mixedSelectors := range selector.PowerSet(selector.NewSet(selectors)) {
+		// s.l.Debug("fetchRegistrationEntries.mixedSelectors.len ", len(mixedSelectors))
+		// for i, ss := range mixedSelectors {
+		// 	s.l.Debug("fetchRegistrationEntries.mixedSelectors ", i, " - ", ss.Type, ":", ss.Value)
+		// }
+
+		req := &datastore.ListSelectorEntriesRequest{Selectors: mixedSelectors.Raw()}
+		listSelectorResponse, err := dataStore.ListMatchingEntries(req)
+		if err != nil {
+			return nil, err
+		}
+
+		entries = append(entries, listSelectorResponse.RegisteredEntryList...)
+	}
+	selectorsEntries := append([]*common.RegistrationEntry(nil), entries...)
+
+	s.l.Debug("fetchRegistrationEntries.entries.len ", len(entries))
+	for i, ss := range entries {
+		s.l.Debug("fetchRegistrationEntries.entries ", i, " - ", ss.SpiffeId, ", ", ss.ParentId)
+		for j, sss := range ss.Selectors {
+			s.l.Debug("fetchRegistrationEntries.entries.selector ", i, ",", j, " - ", sss.Type, ":", sss.Value)
+		}
+	}
 
 	///lookup Registration Entries where spiffeID is the parent ID
 	listResponse, err := dataStore.ListParentIDEntries(&datastore.ListParentIDEntriesRequest{ParentId: spiffeID})
@@ -203,8 +240,12 @@ func (s *nodeServer) fetchRegistrationEntries(selectors []*common.Selector, spif
 		return nil, err
 	}
 	///append parentEntries
-	for _, entry := range listResponse.RegisteredEntryList {
+	for i, entry := range listResponse.RegisteredEntryList {
 		exists := false
+		s.l.Debug("fetchRegistrationEntries.RegisteredEntryList ", i, " - ", entry.SpiffeId, ", ", entry.ParentId)
+		for j, sss := range entry.Selectors {
+			s.l.Debug("fetchRegistrationEntries.RegisteredEntryList.selector ", i, ",", j, " - ", sss.Type, ":", sss.Value)
+		}
 		sort.Slice(entry.Selectors, util.SelectorsSortFunction(entry.Selectors))
 		for _, oldEntry := range selectorsEntries {
 			sort.Slice(oldEntry.Selectors, util.SelectorsSortFunction(oldEntry.Selectors))
@@ -380,6 +421,13 @@ func (s *nodeServer) resolveSelectors(
 	nodeResolver := s.catalog.NodeResolvers()[0]
 	//Call node resolver plugin to get a map of spiffeID=>Selector
 	selectors, err := nodeResolver.Resolve([]string{baseSpiffeID})
+	s.l.Debug("resolveSelectors.selectors ", baseSpiffeID, ": ", len(selectors))
+	s.l.Debug("resolveSelectors.err ", err)
+	for i, ss := range selectors {
+		for j, sss := range ss.Entries {
+			s.l.Debug("selector ", i, ",", j, " - ", sss.Type, ":", sss.Value)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

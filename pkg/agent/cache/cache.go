@@ -72,10 +72,15 @@ func (c *cacheImpl) MatchingEntries(selectors []*common.Selector) (entries []Cac
 
 	for subSet := range selectorSet.Power() {
 		key := deriveCacheKey(subSet.Raw())
+		c.log.Debug("MatchingEntries - key: ", key)
 		if entry, found := c.cache[key]; found {
+			c.log.Debug("MatchingEntries found - entry len: ", len(entry))
 			entries = append(entries, entry...)
+		} else {
+			c.log.Debug("MatchingEntries not found")
 		}
 	}
+	c.log.Debug("MatchingEntries return - entry len: ", len(entries))
 	return entries
 }
 

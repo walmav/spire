@@ -118,7 +118,7 @@ func (a *Agent) Run() error {
 	}
 
 	// Main event loop
-	a.config.Log.Info("SPIRE Agent is now running")
+	a.config.Log.Info("SPIRE Agent is now running! v3.16")
 	for {
 		select {
 		case err = <-a.config.ErrorCh:
@@ -126,8 +126,10 @@ func (a *Agent) Run() error {
 			if e != nil {
 				a.config.Log.Debug(e)
 			}
+			a.config.Log.Info("Exiting Shutdown signal")
 			return err
 		case <-a.ctx.Done():
+			a.config.Log.Info("Exiting Done signal")
 			return a.Shutdown()
 		}
 	}
@@ -217,7 +219,7 @@ func (a *Agent) bootstrap() error {
 
 	plugins := a.Catalog.KeyManagers()
 	if len(plugins) != 1 {
-		return fmt.Errorf("Expected only one key manager plugin, found %i", len(plugins))
+		return fmt.Errorf("Expected only one key manager plugin, found %d", len(plugins))
 	}
 	keyManager := plugins[0]
 
@@ -386,7 +388,7 @@ func (a *Agent) attest() ([]*common.RegistrationEntry, error) {
 	a.BaseSVID = cert
 	a.BaseSVIDTTL = svid.Ttl
 	a.storeBaseSVID()
-	a.config.Log.Info("Attestation complete")
+	a.config.Log.Info("Attestation complete... reg entries: ", len(serverResponse.SvidUpdate.RegistrationEntries))
 	return serverResponse.SvidUpdate.RegistrationEntries, nil
 }
 

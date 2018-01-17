@@ -139,7 +139,7 @@ func (m *manager) Init() {
 		wg.Add(1)
 		go m.rotateBaseSVIDHandler(30*time.Second, &wg)
 
-		m.log.Debug("Initializing Cache Manager")
+		m.log.Debug("Initializing Cache Manager.. entries ", len(m.baseRegEntries))
 		m.regEntriesCh <- m.baseRegEntries
 		m.addToPipeline(len(m.baseRegEntries) - 1)
 
@@ -153,11 +153,13 @@ func (m *manager) Init() {
 					if _, ok := m.spiffeIdEntryMap[parentId]; ok {
 						svid = m.spiffeIdEntryMap[parentId].SVID
 						key = m.spiffeIdEntryMap[parentId].PrivateKey
-					}
-					if parentId == m.baseSPIFFEID {
+					} else if parentId == m.baseSPIFFEID || parentId == "spiffe://example.org/cp" {
 						entry := m.getBaseSVIDEntry()
 						svid = entry.svid
 						key = entry.key
+					} else {
+						m.log.Debug("Unknown parent ", parentId, "... continuing")
+						continue
 					}
 					conn, err := m.getGRPCConn(svid, key)
 					if err != nil {
@@ -170,6 +172,7 @@ func (m *manager) Init() {
 
 			case newCacheEntry := <-m.cacheEntryCh:
 				m.managedCache.SetEntry(newCacheEntry)
+				m.spiffeIdEntryMap[newCacheEntry.RegistrationEntry.ParentId] = newCacheEntry
 				m.log.Debugf("Updated CacheEntry for SPIFFEId: %s", newCacheEntry.RegistrationEntry.SpiffeId)
 				m.addToPipeline(-1)
 
@@ -187,6 +190,8 @@ func (m *manager) Busy() bool {
 }
 
 func (m *manager) fetchSVID(requests []EntryRequest, nodeClient node.NodeClient, wg *sync.WaitGroup) {
+	m.log.Debug("Entering fetchSVID")
+	defer m.log.Debug("Exiting fetchSVID")
 	defer wg.Done()
 	stream, err := nodeClient.FetchSVID(m.ctx)
 	if err != nil {
@@ -201,6 +206,8 @@ func (m *manager) fetchSVID(requests []EntryRequest, nodeClient node.NodeClient,
 	}()
 
 	for _, req := range requests {
+
+		m.log.Debug("FetchSVIDRequest... ", string(req.CSR))
 
 		err := stream.Send(&node.FetchSVIDRequest{Csrs: append([][]byte{}, req.CSR)})
 
