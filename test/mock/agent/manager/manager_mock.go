@@ -33,18 +33,6 @@ func (_m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return _m.recorder
 }
 
-// Err mocks base method
-func (_m *MockManager) Err() error {
-	ret := _m.ctrl.Call(_m, "Err")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Err indicates an expected call of Err
-func (_mr *MockManagerMockRecorder) Err() *gomock.Call {
-	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Err", reflect.TypeOf((*MockManager)(nil).Err))
-}
-
 // MatchingEntries mocks base method
 func (_m *MockManager) MatchingEntries(_param0 []*common.Selector) []cache.Entry {
 	ret := _m.ctrl.Call(_m, "MatchingEntries", _param0)
@@ -80,9 +68,9 @@ func (_mr *MockManagerMockRecorder) Start() *gomock.Call {
 }
 
 // Stopped mocks base method
-func (_m *MockManager) Stopped() chan struct{} {
+func (_m *MockManager) Stopped() chan error {
 	ret := _m.ctrl.Call(_m, "Stopped")
-	ret0, _ := ret[0].(chan struct{})
+	ret0, _ := ret[0].(chan error)
 	return ret0
 }
 
@@ -92,9 +80,9 @@ func (_mr *MockManagerMockRecorder) Stopped() *gomock.Call {
 }
 
 // Subscribe mocks base method
-func (_m *MockManager) Subscribe(_param0 cache.Selectors, _param1 chan struct{}) chan *cache.WorkloadUpdate {
+func (_m *MockManager) Subscribe(_param0 cache.Selectors, _param1 chan struct{}) chan *cache.Entry {
 	ret := _m.ctrl.Call(_m, "Subscribe", _param0, _param1)
-	ret0, _ := ret[0].(chan *cache.WorkloadUpdate)
+	ret0, _ := ret[0].(chan *cache.Entry)
 	return ret0
 }
 
