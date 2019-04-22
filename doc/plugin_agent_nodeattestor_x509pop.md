@@ -14,6 +14,13 @@ SHA1 hash of the ASN.1 DER encoding of the identity certificate. The SPIFFE ID h
 spiffe://<trust domain>/spire/agent/x509pop/<fingerprint>
 ```
 
+Additionally the plugin generates a node resolver entry based on the Subject Common Name of the x509 certificate, if the Subject CN is present in the certificate. This provides a mechanism to define convenient alias SPIFFE ID for the node using subject CN selector.
+
+| Selector                   | Example                                | Description                                                                     |
+| ---------------------------| ---------------------------------------| --------------------------------------------------------------------------------|
+| `x509pop:subject:cn` | `x509pop:subject:cn:example.org`      | Subject Common Name of the x509 certificate                                 |
+
+
 | Configuration | Description | Default                 |
 | ------------- | ----------- | ----------------------- |
 | `private_key_path` | The path to the private key on disk (PEM encoded PKCS1 or PKCS8) | |
